@@ -20,6 +20,10 @@
           padding:7px 14px;display:flex;align-items:center;gap:10px;}
   .topbar .logo{font-weight:800;font-size:14px;color:var(--accent);}
   .topbar .cnx-logo{height:26px;width:auto;object-fit:contain;}
+  .ask-btn{margin-left:auto;flex:0 0 auto;background:var(--accent);color:#fff;
+           text-decoration:none;font-weight:700;font-size:12.5px;padding:7px 13px;
+           border-radius:18px;white-space:nowrap;}
+  .ask-btn:hover{opacity:.9;}
   .topbar .ttl{font-size:13px;color:var(--ink);font-weight:700;}
   /* 레트로 탭 바 (파일 탭 모양) */
   .tabbar{display:flex;gap:2px;background:#d7d3ca;padding:6px 8px 0;border-bottom:1px solid var(--line);
@@ -156,7 +160,9 @@
 </head>
 <body>
 <div class="layout">
-  <div class="topbar"><span class="logo">CNXSOL</span><span class="ttl">SALES BOARD · 코넥스솔루션</span></div>
+  <div class="topbar"><span class="logo">CNXSOL</span><span class="ttl">SALES BOARD · 코넥스솔루션</span>
+    <a class="ask-btn" href="https://forms.office.com/Pages/ResponsePage.aspx?id=Bwt4yNGz7Ei6cxZBHhFozq3XW_pmLttHg2b-je3dvCxURURGTUM5MVJJS0JXQlQyMDUzVFo4WFNVNS4u" target="_blank" rel="noopener">💬 무엇이든 물어보세요!</a>
+  </div>
   <div class="tabbar">
     <div class="erptab on" data-tab="sales">매출</div>
     <div class="erptab" data-tab="sojin">헤인즈 상품분석</div>
