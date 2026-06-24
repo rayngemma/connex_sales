@@ -110,7 +110,7 @@
   .pill.warn{background:#faf3e0;color:var(--warn);} .pill.bad{background:#f8eae8;color:var(--bad);}
   .pill.newp{background:#fdeecb;color:#9a6a1a;}
   .st.newp{color:#9a6a1a;}
-  .bar{height:230px;display:flex;align-items:stretch;gap:8px;padding:12px 8px 8px;
+  .bar{height:200px;display:flex;align-items:stretch;gap:8px;padding:12px 8px 8px;
        background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:visible;}
   .bcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0;}
   .bcol .n{font-size:11px;color:var(--ink);margin-bottom:3px;font-weight:700;white-space:nowrap;
@@ -139,6 +139,7 @@
   .bs-logo{width:56px;height:56px;flex:0 0 auto;object-fit:contain;}
   .bs-info{min-width:0;width:100%;text-align:center;}
   .bs-rev{font-size:18px;font-weight:800;margin-top:4px;line-height:1.2;word-break:keep-all;}
+  .bs-share{font-size:13px;font-weight:700;color:var(--accent);margin-top:3px;}
   .bs-qty{font-size:12px;color:var(--muted);margin-top:3px;}
   .goal-card .gn{font-size:13px;font-weight:700;margin-bottom:2px;}
   .goal-card .gv{font-size:12px;color:var(--muted);margin-bottom:8px;}
@@ -791,10 +792,12 @@ function renderBrandSummary(){
     return true;
   });
   const box=document.getElementById('brand-summary');
+  const totalRev = rows.reduce((a,d)=>a+d.매출,0) || 1;
   box.innerHTML = targets.map((bn,idx)=>{
     const r = rows.filter(d=>d.브랜드===bn);
     const rev = r.reduce((a,d)=>a+d.매출,0);
     const qty = r.reduce((a,d)=>a+(d.수량||0),0);
+    const share = (rev/totalRev*100).toFixed(1);
     const logoFile = idx===0 ? 'logo_hanes.png' : 'logo_postman.png';
     const logo = `<img class="bs-logo" src="${logoFile}" alt="${bn}" onerror="this.style.display='none'">`;
     return `<div class="goal-card bs-card">
@@ -802,6 +805,7 @@ function renderBrandSummary(){
       <div class="bs-info">
         <div class="gn">${bn}</div>
         <div class="bs-rev">${won(rev)}원</div>
+        <div class="bs-share">전체 매출의 ${share}%</div>
         <div class="bs-qty">판매수량 ${won(qty)}개</div>
       </div>
     </div>`;
@@ -821,13 +825,11 @@ function renderSales(){
   rows.forEach(d=>{const k=d.일자.slice(0,7);m[k]=(m[k]||0)+d.매출;});
   const keys=Object.keys(m).sort();
   const max=Math.max(...keys.map(k=>m[k]),1);
-  const sumAll=keys.reduce((a,k)=>a+m[k],0)||1;
   const trend=document.getElementById('trend');
   trend.innerHTML = keys.length? keys.map((k,idx)=>{
     const h=Math.max(m[k]/max*120,2);
-    const pct=(m[k]/sumAll*100).toFixed(1);
     return `<div class="bcol"><div class="n">${won(m[k]/1e6)}백만</div>
-            <div class="b c${idx%6}" style="height:${h}px"></div><div class="t">${k}</div><div class="p">${pct}%</div></div>`;
+            <div class="b c${idx%6}" style="height:${h}px"></div><div class="t">${k}</div></div>`;
   }).join('') : '<div class="empty">데이터 없음</div>';
   // 매장별 표 (선택 기간 기준: 순매출·판매수량·환불수량)
   const byStore={};
