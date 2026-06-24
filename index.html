@@ -207,6 +207,10 @@
   #bc-reader{width:100%;min-height:240px;background:#000;position:relative;overflow:hidden;}
   #bc-video{width:100%;height:auto;max-height:60vh;display:block;object-fit:cover;}
   .bc-hint{padding:12px 16px;font-size:13px;color:var(--muted);text-align:center;}
+  .bc-photo{padding:0 16px 16px;text-align:center;}
+  .bc-photo-tip{font-size:12px;color:var(--accent);margin-bottom:8px;}
+  .bc-photo-btn{display:inline-block;background:var(--accent);color:#fff;font-weight:700;font-size:14px;
+    padding:11px 20px;border-radius:6px;cursor:pointer;}
   /* 목표 아코디언 */
   .goal-acc{cursor:pointer;}
   .goal-acc-arrow{color:var(--accent);font-size:12px;font-weight:700;}
@@ -1484,8 +1488,7 @@ function openScanner(onFound){
     let hints=null;
     try{
       const F=ZXing.BarcodeFormat, M=ZXing.DecodeHintType;
-      const formats=[F.CODE_39,F.CODE_128,F.CODE_93,F.CODABAR,F.EAN_13,F.EAN_8,
-                     F.UPC_A,F.UPC_E,F.ITF,F.QR_CODE].filter(x=>x!==undefined);
+      const formats=[F.CODE_128,F.CODE_39,F.CODE_93,F.QR_CODE].filter(x=>x!==undefined);
       hints=new Map();
       hints.set(M.POSSIBLE_FORMATS, formats);
       hints.set(M.TRY_HARDER, true);
@@ -1527,6 +1530,31 @@ function closeScanner(){
   modal.classList.add('hide');
 }
 // 각 탭 검색칸 채우기용 핸들러
+function scanFromPhoto(ev){
+  const file=ev.target.files && ev.target.files[0];
+  if(!file) return;
+  const hint=document.getElementById('bc-hint');
+  hint.textContent='사진 분석 중…';
+  if(typeof ZXing==='undefined'){ hint.textContent='스캐너를 불러오지 못했습니다.'; return; }
+  // 실시간 스캔 멈추고 이미지 디코딩
+  if(_bcReader){ try{ _bcReader.reset(); }catch(e){} }
+  const url=URL.createObjectURL(file);
+  let hints=null;
+  try{
+    const F=ZXing.BarcodeFormat, M=ZXing.DecodeHintType;
+    const formats=[F.CODE_128,F.CODE_39,F.CODE_93,F.QR_CODE].filter(x=>x!==undefined);
+    hints=new Map(); hints.set(M.POSSIBLE_FORMATS,formats); hints.set(M.TRY_HARDER,true);
+  }catch(e){ hints=null; }
+  const reader=new ZXing.BrowserMultiFormatReader(hints);
+  reader.decodeFromImageUrl(url).then(result=>{
+    URL.revokeObjectURL(url);
+    onScanSuccess(result.getText());
+  }).catch(e=>{
+    URL.revokeObjectURL(url);
+    hint.textContent='사진에서 바코드를 찾지 못했어요. 더 가까이/선명하게 다시 찍어주세요.';
+    ev.target.value='';
+  });
+}
 function scanToSearch(inputId, renderFn){
   openScanner((raw,name)=>{
     const inp=document.getElementById(inputId);
@@ -1542,6 +1570,12 @@ function scanToSearch(inputId, renderFn){
     <div class="bc-head"><span>바코드 스캔</span><span class="bc-close" onclick="closeScanner()">✕</span></div>
     <div id="bc-reader"><video id="bc-video" muted playsinline></video></div>
     <div class="bc-hint" id="bc-hint">상품 바코드를 사각형 안에 비춰주세요</div>
+    <div class="bc-photo">
+      <div class="bc-photo-tip">잘 안 읽히면 ↓ 사진으로 인식해보세요 (더 정확)</div>
+      <label class="bc-photo-btn">📸 사진 찍어서 인식
+        <input type="file" id="bc-file" accept="image/*" capture="environment" style="display:none" onchange="scanFromPhoto(event)">
+      </label>
+    </div>
   </div>
 </div>
 </body>
