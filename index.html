@@ -1478,10 +1478,17 @@ function openScanner(onFound){
     hint.textContent='스캐너를 불러오지 못했습니다. 네트워크를 확인하거나 직접 검색해주세요.';
     return;
   }
-  _bcScanner = new Html5Qrcode('bc-reader');
+  // 읽을 바코드 포맷 명시 (Code39/Code128 등 1D 전부 + QR)
+  let fmts;
+  try{
+    const F = Html5QrcodeSupportedFormats;
+    fmts = [F.CODE_39, F.CODE_128, F.CODE_93, F.CODABAR, F.EAN_13, F.EAN_8,
+            F.UPC_A, F.UPC_E, F.ITF, F.QR_CODE].filter(x=>x!==undefined);
+  }catch(e){ fmts = undefined; }
+  _bcScanner = new Html5Qrcode('bc-reader', fmts?{formatsToSupport:fmts}:undefined);
   _bcScanner.start(
     {facingMode:'environment'},
-    {fps:10, qrbox:{width:250,height:150}},
+    {fps:10, qrbox:{width:260,height:170}, aspectRatio:1.7},
     (decodedText)=>{ onScanSuccess(decodedText); },
     ()=>{}
   ).then(()=>{ hint.textContent='상품 바코드를 사각형 안에 비춰주세요'; })
@@ -1489,11 +1496,14 @@ function openScanner(onFound){
 }
 function onScanSuccess(code){
   const raw=String(code).trim();
-  // 바코드 → 상품명 매칭 (정확 일치 우선, 없으면 코드 부분일치)
+  const norm = s=>String(s).toUpperCase().split(' ').join('').split('-').join('');
+  const rawN = norm(raw);
+  // 바코드 → 상품명 매칭 (정확 일치 → 정규화 일치 → 부분 일치)
   let name = BCMAP[raw];
   if(!name){
-    // 사이즈 접미 제거 후 재시도 (바코드에서 상품코드 부분만)
-    const hit=Object.keys(BCMAP).find(bc=>bc.startsWith(raw)||raw.startsWith(bc));
+    const keys=Object.keys(BCMAP);
+    let hit = keys.find(bc=>norm(bc)===rawN);
+    if(!hit) hit = keys.find(bc=>{ const k=norm(bc); return k.startsWith(rawN)||rawN.startsWith(k); });
     if(hit) name=BCMAP[hit];
   }
   closeScanner();
