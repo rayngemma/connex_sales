@@ -206,6 +206,18 @@
   .bc-close{cursor:pointer;font-size:18px;color:var(--muted);}
   #bc-reader{width:100%;min-height:240px;background:#000;position:relative;overflow:hidden;}
   #bc-video{width:100%;height:auto;max-height:60vh;display:block;object-fit:cover;}
+  /* 조준 가이드 박스 (1D 바코드용 가로 직사각형) */
+  .bc-frame{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:80%;height:42%;border:2px solid rgba(255,255,255,.55);border-radius:6px;
+    box-shadow:0 0 0 2000px rgba(0,0,0,.32);pointer-events:none;}
+  .bc-c{position:absolute;width:22px;height:22px;border:3px solid var(--accent);}
+  .bc-tl{top:-2px;left:-2px;border-right:none;border-bottom:none;border-radius:6px 0 0 0;}
+  .bc-tr{top:-2px;right:-2px;border-left:none;border-bottom:none;border-radius:0 6px 0 0;}
+  .bc-bl{bottom:-2px;left:-2px;border-right:none;border-top:none;border-radius:0 0 0 6px;}
+  .bc-br{bottom:-2px;right:-2px;border-left:none;border-top:none;border-radius:0 0 6px 0;}
+  .bc-scanline{position:absolute;left:6%;right:6%;height:2px;background:var(--accent);
+    top:50%;box-shadow:0 0 6px var(--accent);animation:bcscan 1.8s ease-in-out infinite;}
+  @keyframes bcscan{0%{top:12%}50%{top:88%}100%{top:12%}}
   .bc-hint{padding:12px 16px;font-size:13px;color:var(--muted);text-align:center;}
   .bc-photo{padding:0 16px 16px;text-align:center;}
   .bc-photo-tip{font-size:12px;color:var(--accent);margin-bottom:8px;}
@@ -1568,7 +1580,9 @@ function scanToSearch(inputId, renderFn){
 <div id="bc-modal" class="bc-modal hide">
   <div class="bc-box">
     <div class="bc-head"><span>바코드 스캔</span><span class="bc-close" onclick="closeScanner()">✕</span></div>
-    <div id="bc-reader"><video id="bc-video" muted playsinline></video></div>
+    <div id="bc-reader"><video id="bc-video" muted playsinline></video>
+      <div class="bc-frame"><span class="bc-c bc-tl"></span><span class="bc-c bc-tr"></span><span class="bc-c bc-bl"></span><span class="bc-c bc-br"></span><div class="bc-scanline"></div></div>
+    </div>
     <div class="bc-hint" id="bc-hint">상품 바코드를 사각형 안에 비춰주세요</div>
     <div class="bc-photo">
       <div class="bc-photo-tip">잘 안 읽히면 ↓ 사진으로 인식해보세요 (더 정확)</div>
