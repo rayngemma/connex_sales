@@ -204,7 +204,8 @@
   .bc-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;
     font-size:15px;font-weight:700;border-bottom:1px solid var(--line);}
   .bc-close{cursor:pointer;font-size:18px;color:var(--muted);}
-  #bc-reader{width:100%;min-height:240px;background:#000;}
+  #bc-reader{width:100%;min-height:240px;background:#000;position:relative;overflow:hidden;}
+  #bc-video{width:100%;height:auto;max-height:60vh;display:block;object-fit:cover;}
   .bc-hint{padding:12px 16px;font-size:13px;color:var(--muted);text-align:center;}
   /* 목표 아코디언 */
   .goal-acc{cursor:pointer;}
@@ -442,7 +443,7 @@
   }
 
 </style>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 </head>
 <body>
 <div class="layout">
@@ -614,7 +615,7 @@
   <div id="tab-pinfo" class="hide">
     <div class="filters">
       <div class="frow"><div class="flabel">상품 검색 (상품명 또는 코드)</div>
-        <div class="isearch-row"><input class="search" id="i-search" type="text" placeholder="상품명을 입력하세요 (예: 헤인즈 비피, TYROLEAN)"><button type="button" class="cam-btn" onclick="scanToSearch('i-search', renderPInfo)" title="바코드 스캔">📷</button></div></div>
+        <div class="pm-search has-cam"><input id="i-search" type="search" placeholder="상품명을 입력하세요 (예: 헤인즈 비피, TYROLEAN)" autocomplete="off"><button type="button" class="cam-btn" onclick="scanToSearch('i-search', renderPInfo)" title="바코드 스캔">📷</button></div></div>
     </div>
     <div id="pinfo-result"></div>
   </div>
@@ -1466,7 +1467,7 @@ buildSojinFilters(); renderSojin();
 document.getElementById('i-search').oninput=renderPInfo; renderPInfo();
 
 // ================= 바코드 스캐너 (공통) =================
-let _bcScanner=null, _bcOnFound=null;
+let _bcReader=null, _bcOnFound=null;
 const BCMAP = DATA.barcodeMap || {};
 function openScanner(onFound){
   _bcOnFound = onFound;
@@ -1474,25 +1475,33 @@ function openScanner(onFound){
   const hint=document.getElementById('bc-hint');
   modal.classList.remove('hide');
   hint.textContent='카메라 준비 중…';
-  if(typeof Html5Qrcode==='undefined'){
+  if(typeof ZXing==='undefined'){
     hint.textContent='스캐너를 불러오지 못했습니다. 네트워크를 확인하거나 직접 검색해주세요.';
     return;
   }
-  // 읽을 바코드 포맷 명시 (Code39/Code128 등 1D 전부 + QR)
-  let fmts;
   try{
-    const F = Html5QrcodeSupportedFormats;
-    fmts = [F.CODE_39, F.CODE_128, F.CODE_93, F.CODABAR, F.EAN_13, F.EAN_8,
-            F.UPC_A, F.UPC_E, F.ITF, F.QR_CODE].filter(x=>x!==undefined);
-  }catch(e){ fmts = undefined; }
-  _bcScanner = new Html5Qrcode('bc-reader', fmts?{formatsToSupport:fmts}:undefined);
-  _bcScanner.start(
-    {facingMode:'environment'},
-    {fps:10, qrbox:{width:260,height:170}, aspectRatio:1.7},
-    (decodedText)=>{ onScanSuccess(decodedText); },
-    ()=>{}
-  ).then(()=>{ hint.textContent='상품 바코드를 사각형 안에 비춰주세요'; })
-   .catch(err=>{ hint.textContent='카메라를 열 수 없습니다. 권한을 허용해주세요.'; });
+    // 읽을 포맷 지정 (1D 막대바코드 전부 + QR)
+    let hints=null;
+    try{
+      const F=ZXing.BarcodeFormat, M=ZXing.DecodeHintType;
+      const formats=[F.CODE_39,F.CODE_128,F.CODE_93,F.CODABAR,F.EAN_13,F.EAN_8,
+                     F.UPC_A,F.UPC_E,F.ITF,F.QR_CODE].filter(x=>x!==undefined);
+      hints=new Map();
+      hints.set(M.POSSIBLE_FORMATS, formats);
+      hints.set(M.TRY_HARDER, true);
+    }catch(e){ hints=null; }
+    _bcReader = new ZXing.BrowserMultiFormatReader(hints);
+    _bcReader.decodeFromConstraints(
+      {video:{facingMode:'environment'}},
+      'bc-video',
+      (result, err)=>{
+        if(result){ onScanSuccess(result.getText()); }
+      }
+    ).then(()=>{ hint.textContent='상품 바코드를 사각형 안에 비춰주세요'; })
+     .catch(e=>{ hint.textContent='카메라를 열 수 없습니다. 권한을 허용해주세요.'; });
+  }catch(e){
+    hint.textContent='스캐너 오류: '+e.message;
+  }
 }
 function onScanSuccess(code){
   const raw=String(code).trim();
@@ -1511,8 +1520,9 @@ function onScanSuccess(code){
 }
 function closeScanner(){
   const modal=document.getElementById('bc-modal');
-  if(_bcScanner){
-    _bcScanner.stop().then(()=>{ _bcScanner.clear(); _bcScanner=null; }).catch(()=>{ _bcScanner=null; });
+  if(_bcReader){
+    try{ _bcReader.reset(); }catch(e){}
+    _bcReader=null;
   }
   modal.classList.add('hide');
 }
@@ -1530,7 +1540,7 @@ function scanToSearch(inputId, renderFn){
 <div id="bc-modal" class="bc-modal hide">
   <div class="bc-box">
     <div class="bc-head"><span>바코드 스캔</span><span class="bc-close" onclick="closeScanner()">✕</span></div>
-    <div id="bc-reader"></div>
+    <div id="bc-reader"><video id="bc-video" muted playsinline></video></div>
     <div class="bc-hint" id="bc-hint">상품 바코드를 사각형 안에 비춰주세요</div>
   </div>
 </div>
