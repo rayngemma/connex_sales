@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>CNXSOL SALES BOARD</title>
 <style>
   :root{
@@ -223,6 +223,8 @@
   .bc-photo-tip{font-size:12px;color:var(--accent);margin-bottom:8px;}
   .bc-photo-btn{display:inline-block;background:var(--accent);color:#fff;font-weight:700;font-size:14px;
     padding:11px 20px;border-radius:6px;cursor:pointer;}
+  .bc-busy{position:fixed;inset:0;background:rgba(30,27,22,.55);z-index:300;display:flex;align-items:center;justify-content:center;}
+  .bc-busy-box{background:#fff;border-radius:10px;padding:20px 28px;font-size:15px;font-weight:700;color:var(--ink);}
   /* 목표 아코디언 */
   .goal-acc{cursor:pointer;}
   .goal-acc-arrow{color:var(--accent);font-size:12px;font-weight:700;}
@@ -244,7 +246,7 @@
   .lo .goal-pct{color:#c2685e;} .mid .goal-pct{color:#c79a3a;} .hi .goal-pct{color:#4a9e7f;}
   .hide{display:none;}
   .search{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;
-          font-size:14px;margin-bottom:0;}
+          font-size:16px;margin-bottom:0;}
   .thumb{width:42px;height:42px;border-radius:8px;object-fit:cover;background:#f0eee8;
          display:inline-block;vertical-align:middle;border:1px solid var(--line);}
   .thumb-ph{width:42px;height:42px;border-radius:8px;background:#f0eee8;border:1px solid var(--line);
@@ -308,7 +310,7 @@
   .pm-wrap{padding:0;}
   .pm-search{position:relative;margin-bottom:10px;}
   .pm-search input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--line);border-radius:3px;
-    background:#fff;font-size:13px;color:var(--ink);font-family:inherit;}
+    background:#fff;font-size:16px;color:var(--ink);font-family:inherit;}
   .pm-search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(74,107,138,.18);}
   .pm-search::before{content:"⌕";position:absolute;left:11px;top:50%;transform:translateY(-50%);
     font-size:16px;color:var(--accent);}
@@ -1365,10 +1367,11 @@ function cpInit(){
 }
 // 센트럴 탭: 바코드 스캔 → 검색칸 채우고 상품정보 표시
 function cpScan(){
-  openScanner((raw,name)=>{
+  openPhotoScan((raw,name)=>{
     const inp=document.getElementById('cp-search');
     inp.value = name || raw;
     cpShowProduct();
+    if(!name) setTimeout(()=>alert('읽은 바코드: '+raw+' — 등록된 상품을 찾지 못했습니다.'),100);
   });
 }
 function cpShowProduct(){
@@ -1557,14 +1560,20 @@ function closeScanner(){
   modal.classList.add('hide');
 }
 // 각 탭 검색칸 채우기용 핸들러
+// ===== 사진 인식 전용 흐름 =====
+let _photoOnFound=null;
+function openPhotoScan(onFound){
+  _photoOnFound = onFound;
+  const f=document.getElementById('bc-file');
+  f.value='';            // 같은 사진 다시 찍어도 onchange 발생하도록
+  f.click();
+}
 function scanFromPhoto(ev){
   const file=ev.target.files && ev.target.files[0];
   if(!file) return;
-  const hint=document.getElementById('bc-hint');
-  hint.textContent='사진 분석 중…';
-  if(typeof ZXing==='undefined'){ hint.textContent='스캐너를 불러오지 못했습니다.'; return; }
-  // 실시간 스캔 멈추고 이미지 디코딩
-  if(_bcReader){ try{ _bcReader.reset(); }catch(e){} }
+  const ov=document.getElementById('bc-busy');
+  if(ov) ov.classList.remove('hide');
+  if(typeof ZXing==='undefined'){ if(ov)ov.classList.add('hide'); alert('스캐너를 불러오지 못했습니다. 네트워크를 확인해주세요.'); return; }
   const url=URL.createObjectURL(file);
   let hints=null;
   try{
@@ -1575,37 +1584,41 @@ function scanFromPhoto(ev){
   const reader=new ZXing.BrowserMultiFormatReader(hints);
   reader.decodeFromImageUrl(url).then(result=>{
     URL.revokeObjectURL(url);
-    onScanSuccess(result.getText());
+    if(ov) ov.classList.add('hide');
+    const raw=String(result.getText()).trim();
+    const name=matchBarcode(raw);
+    if(_photoOnFound) _photoOnFound(raw, name);
   }).catch(e=>{
     URL.revokeObjectURL(url);
-    hint.textContent='사진에서 바코드를 찾지 못했어요. 더 가까이/선명하게 다시 찍어주세요.';
+    if(ov) ov.classList.add('hide');
     ev.target.value='';
+    alert('사진에서 바코드를 찾지 못했어요. 바코드를 화면에 꽉 차게, 선명하게(초점) 다시 찍어주세요.');
   });
 }
+// 바코드 → 상품명 매칭 (정확 → 정규화 → 부분)
+function matchBarcode(raw){
+  const norm = s=>String(s).toUpperCase().split(' ').join('').split('-').join('');
+  const rawN = norm(raw);
+  let name = BCMAP[raw];
+  if(!name){
+    const keys=Object.keys(BCMAP);
+    let hit = keys.find(bc=>norm(bc)===rawN);
+    if(!hit) hit = keys.find(bc=>{ const k=norm(bc); return k.startsWith(rawN)||rawN.startsWith(k); });
+    if(hit) name=BCMAP[hit];
+  }
+  return name;
+}
 function scanToSearch(inputId, renderFn){
-  openScanner((raw,name)=>{
+  openPhotoScan((raw,name)=>{
     const inp=document.getElementById(inputId);
-    const val = name || raw;
-    inp.value = val;
+    inp.value = name || raw;
     inp.dispatchEvent(new Event('input',{bubbles:true}));
     if(renderFn) renderFn();
+    if(!name) setTimeout(()=>alert('읽은 바코드: '+raw+' — 등록된 상품을 찾지 못했습니다.'),100);
   });
 }
 </script>
-<div id="bc-modal" class="bc-modal hide">
-  <div class="bc-box">
-    <div class="bc-head"><span>바코드 스캔</span><span class="bc-close" onclick="closeScanner()">✕</span></div>
-    <div id="bc-reader"><video id="bc-video" muted playsinline></video>
-      <div class="bc-frame"><span class="bc-c bc-tl"></span><span class="bc-c bc-tr"></span><span class="bc-c bc-bl"></span><span class="bc-c bc-br"></span><div class="bc-scanline"></div></div>
-    </div>
-    <div class="bc-hint" id="bc-hint">상품 바코드를 사각형 안에 비춰주세요</div>
-    <div class="bc-photo">
-      <div class="bc-photo-tip">잘 안 읽히면 ↓ 사진으로 인식해보세요 (더 정확)</div>
-      <label class="bc-photo-btn">📸 사진 찍어서 인식
-        <input type="file" id="bc-file" accept="image/*" capture="environment" style="display:none" onchange="scanFromPhoto(event)">
-      </label>
-    </div>
-  </div>
-</div>
+<input type="file" id="bc-file" accept="image/*" capture="environment" style="display:none" onchange="scanFromPhoto(event)">
+<div id="bc-busy" class="bc-busy hide"><div class="bc-busy-box">📷 바코드 분석 중…</div></div>
 </body>
 </html>
