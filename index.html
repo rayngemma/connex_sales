@@ -1506,14 +1506,29 @@ function openScanner(onFound){
       hints.set(M.TRY_HARDER, true);
     }catch(e){ hints=null; }
     _bcReader = new ZXing.BrowserMultiFormatReader(hints);
+    try{ _bcReader.timeBetweenScansMillis = 150; }catch(e){}
+    const camConstraints = {
+      video:{
+        facingMode:{ideal:'environment'},
+        width:{ideal:1920}, height:{ideal:1080},
+        focusMode:'continuous',
+        advanced:[{focusMode:'continuous'}]
+      }
+    };
     _bcReader.decodeFromConstraints(
-      {video:{facingMode:'environment'}},
+      camConstraints,
       'bc-video',
       (result, err)=>{
         if(result){ onScanSuccess(result.getText()); }
       }
-    ).then(()=>{ hint.textContent='상품 바코드를 사각형 안에 비춰주세요'; })
-     .catch(e=>{ hint.textContent='카메라를 열 수 없습니다. 권한을 허용해주세요.'; });
+    ).then(()=>{ hint.textContent='바코드를 박스 안에 꽉 차게, 10~15cm 거리에서 비춰주세요'; })
+     .catch(e=>{
+       // 고해상도/초점 제약이 거부되면 기본 제약으로 재시도
+       _bcReader.decodeFromConstraints({video:{facingMode:'environment'}}, 'bc-video',
+         (result,err)=>{ if(result){ onScanSuccess(result.getText()); } })
+         .then(()=>{ hint.textContent='바코드를 박스 안에 꽉 차게 비춰주세요'; })
+         .catch(e2=>{ hint.textContent='카메라를 열 수 없습니다. 권한을 허용해주세요.'; });
+     });
   }catch(e){
     hint.textContent='스캐너 오류: '+e.message;
   }
